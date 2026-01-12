@@ -1,14 +1,24 @@
 # ============================================
-# bot.py - Telegram Bot (To'liq versiya)
+# bot.py - Telegram Bot (To'liq versiya, moslashtirilgan v20+)
 # ============================================
 
 import logging
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, CallbackContext, filters
+from telegram.ext import (
+    Updater,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    CallbackContext,
+    filters,
+)
 import database as db
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 # ==================== SOZLAMALAR ====================
@@ -31,14 +41,14 @@ def super_admin_keyboard():
 def admin_keyboard():
     """Admin menyusi"""
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("➕ Kalit so'z", callback_data='add_keyword'), 
+        [InlineKeyboardButton("➕ Kalit so'z", callback_data='add_keyword'),
          InlineKeyboardButton("📋 Ko'rish", callback_data='view_keywords')],
         [InlineKeyboardButton("🗑 So'z o'chirish", callback_data='delete_keyword')],
         [InlineKeyboardButton("➕ Shaxsiy guruh", callback_data='add_private_group')],
-        [InlineKeyboardButton("👁 Ko'rish", callback_data='view_private_group'), 
+        [InlineKeyboardButton("👁 Ko'rish", callback_data='view_private_group'),
          InlineKeyboardButton("🗑 O'chirish", callback_data='delete_private_group')],
         [InlineKeyboardButton("➕ Izlovchi guruh", callback_data='add_search_group')],
-        [InlineKeyboardButton("📋 Ko'rish", callback_data='view_search_groups'), 
+        [InlineKeyboardButton("📋 Ko'rish", callback_data='view_search_groups'),
          InlineKeyboardButton("🗑 O'chirish", callback_data='delete_search_group')]
     ])
 
@@ -52,7 +62,7 @@ def start(update: Update, context: CallbackContext):
     """Start command handler"""
     user_id = update.effective_user.id
     username = update.effective_user.username or update.effective_user.first_name
-    
+
     if user_id == SUPER_ADMIN_ID:
         update.message.reply_text(
             "🔐 Assalomu alaykum, Super Admin!\n\nMenyudan kerakli bo'limni tanlang:",
@@ -83,7 +93,6 @@ def button_callback(update: Update, context: CallbackContext):
     data = query.data
 
     # ========== SUPER ADMIN FUNKSIYALARI ==========
-    
     if data == 'add_admin' and user_id == SUPER_ADMIN_ID:
         context.user_data['waiting'] = 'admin_id'
         query.edit_message_text("📝 Yangi admin ID raqamini yuboring:", reply_markup=back_button())
@@ -129,27 +138,27 @@ def button_callback(update: Update, context: CallbackContext):
         stop_time = db.get_setting('userbot_stop_time', '00:00')
         start_time = db.get_setting('userbot_start_time', '02:00')
         schedule_enabled = db.get_setting('userbot_schedule_enabled', 'true')
-        
+
         status = "✅ Yoqilgan" if schedule_enabled == 'true' else "❌ O'chirilgan"
-        
+
         text = "⚙️ Userbot sozlamalari:\n\n"
         text += f"⏰ Kundalik to'xtatish: {status}\n"
-        
+
         if schedule_enabled == 'true':
             text += f"🌙 To'xtatish vaqti: {stop_time}\n"
             text += f"🌅 Ishga tushirish vaqti: {start_time}\n\n"
         else:
             text += "\n"
-        
+
         text += "💡 Vaqtni o'zgartirish uchun quyidagi formatda yuboring:\n"
         text += "<code>00:00:02:00</code>\n(00:00 da to'xtatadi, 02:00 da ishga tushiradi)\n\n"
         text += "📝 To'xtatishni o'chirish uchun: <code>off</code>"
-        
+
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("❌ To'xtatishni o'chirish", callback_data='userbot_disable_schedule')],
             [InlineKeyboardButton("⬅️ Ortga", callback_data='back_to_main')]
         ])
-        
+
         query.edit_message_text(text, reply_markup=keyboard, parse_mode='HTML')
         context.user_data['waiting'] = 'userbot_time'
 
@@ -162,28 +171,28 @@ def button_callback(update: Update, context: CallbackContext):
         try:
             conn = db.get_db()
             c = conn.cursor()
-            
+
             c.execute("SELECT COUNT(*) as cnt FROM admins")
             admin_count = c.fetchone()['cnt']
-            
+
             c.execute("SELECT COUNT(*) as cnt FROM keywords")
             keyword_count = c.fetchone()['cnt']
-            
+
             c.execute("SELECT COUNT(*) as cnt FROM search_groups")
             search_group_count = c.fetchone()['cnt']
-            
+
             c.execute("SELECT COUNT(*) as cnt FROM private_groups")
             private_group_count = c.fetchone()['cnt']
-            
+
             last_check = db.get_setting('userbot_last_check', 'Hech qachon')
             schedule_enabled = db.get_setting('userbot_schedule_enabled', 'true')
             stop_time = db.get_setting('userbot_stop_time', '00:00')
             start_time = db.get_setting('userbot_start_time', '02:00')
-            
+
             conn.close()
-            
+
             status = "✅ Yoqilgan" if schedule_enabled == 'true' else "❌ O'chirilgan"
-            
+
             text = "🤖 Userbot holati:\n\n📊 Statistika:\n"
             text += f"👥 Adminlar: {admin_count} ta\n"
             text += f"🔑 Kalit so'zlar: {keyword_count} ta\n"
@@ -191,30 +200,29 @@ def button_callback(update: Update, context: CallbackContext):
             text += f"📢 Shaxsiy guruhlar: {private_group_count} ta\n\n"
             text += "⚙️ Sozlamalar:\n"
             text += f"⏰ Kundalik to'xtatish: {status}\n"
-            
+
             if schedule_enabled == 'true':
                 text += f"🌙 To'xtatish: {stop_time}\n"
                 text += f"🌅 Ishga tushirish: {start_time}\n\n"
             else:
                 text += "\n"
-            
+
             text += f"🕐 Oxirgi tekshiruv: {last_check}\n\n"
             text += "💡 Userbot ishlab turganini tekshirish uchun izlovchi guruhda kalit so'z yozing."
-            
+
             db.set_setting('userbot_last_check', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            
+
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔄 Yangilash", callback_data='check_userbot')],
                 [InlineKeyboardButton("⬅️ Ortga", callback_data='back_to_main')]
             ])
-            
+
             query.edit_message_text(text, reply_markup=keyboard)
-            
+
         except Exception as e:
             query.edit_message_text(f"❌ Xato: {e}", reply_markup=back_button())
 
     # ========== ADMIN FUNKSIYALARI ==========
-    
     elif data == 'add_keyword':
         context.user_data['waiting'] = 'keyword'
         query.edit_message_text("📝 Kalit so'zni kiriting:", reply_markup=back_button())
@@ -345,13 +353,13 @@ def handle_text(update: Update, context: CallbackContext):
     """Matn xabarlarni handle qilish"""
     if not update.message or not update.message.text:
         return
-    
+
     user_id = update.effective_user.id
     text = update.message.text.strip()
-    
+
     if not db.is_admin(user_id, SUPER_ADMIN_ID):
         return
-    
+
     waiting = context.user_data.get('waiting')
 
     if waiting == 'admin_id' and user_id == SUPER_ADMIN_ID:
@@ -362,7 +370,7 @@ def handle_text(update: Update, context: CallbackContext):
                 uname = chat.username or chat.first_name or f"User_{new_id}"
             except Exception:
                 uname = f"User_{new_id}"
-            
+
             if db.add_admin(new_id, uname):
                 update.message.reply_text(f"✅ Admin qo'shildi!\n\n👤 {uname}\n🆔 {new_id}", reply_markup=back_button())
             else:
@@ -382,11 +390,11 @@ def handle_text(update: Update, context: CallbackContext):
                     stop_h, stop_m, start_h, start_m = times
                     stop_time = f"{stop_h.zfill(2)}:{stop_m.zfill(2)}"
                     start_time = f"{start_h.zfill(2)}:{start_m.zfill(2)}"
-                    
+
                     db.set_setting('userbot_stop_time', stop_time)
                     db.set_setting('userbot_start_time', start_time)
                     db.set_setting('userbot_schedule_enabled', 'true')
-                    
+
                     update.message.reply_text(
                         f"✅ Vaqt sozlandi!\n\n🌙 To'xtatish: {stop_time}\n🌅 Ishga tushirish: {start_time}",
                         reply_markup=back_button()
@@ -440,7 +448,7 @@ def handle_text(update: Update, context: CallbackContext):
                     gname = chat.title or f"Guruh {gid}"
                 except Exception:
                     gname = f"Guruh {gid}"
-                
+
                 success, message = db.add_search_group(admin_id, SUPER_ADMIN_ID, group_id=gid, group_name=gname)
                 if success:
                     update.message.reply_text(f"✅ {message}: {gname}", reply_markup=back_button())
@@ -456,24 +464,24 @@ def check_group_message(update: Update, context: CallbackContext):
     """Guruh xabarlarini tekshirish"""
     if not update.message or not update.message.text:
         return
-    
+
     chat_type = update.message.chat.type
     if chat_type not in ['group', 'supergroup']:
         return
-    
+
     msg_text = update.message.text
     group_id = update.message.chat.id
     user_id = update.message.from_user.id
     username = update.message.from_user.username or update.message.from_user.first_name or "Unknown"
     group_name = update.message.chat.title or "Unknown group"
-    
+
     matches = db.check_keywords_in_message(group_id, msg_text)
-    
+
     for match in matches:
         try:
             keyboard = [[InlineKeyboardButton("👤 Profil", url=f"tg://user?id={user_id}")]]
             private_group_id = match.get('private_group_id')
-            
+
             if private_group_id and str(private_group_id).lstrip('-').isdigit():
                 context.bot.send_message(
                     chat_id=int(private_group_id),
@@ -495,7 +503,7 @@ def check_group_message(update: Update, context: CallbackContext):
 def main():
     """Bot ishga tushirish"""
     db.init_db()
-    
+
     # Default sozlamalar
     if not db.get_setting('userbot_stop_time'):
         db.set_setting('userbot_stop_time', '00:00')
@@ -503,7 +511,7 @@ def main():
         db.set_setting('userbot_start_time', '02:00')
     if not db.get_setting('userbot_schedule_enabled'):
         db.set_setting('userbot_schedule_enabled', 'true')
-    
+
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
@@ -514,7 +522,7 @@ def main():
     dp.add_handler(MessageHandler(filters.TEXT & filters.ChatType.GROUPS, check_group_message))
 
     logger.info("🚀 Bot ishga tushmoqda...")
-    
+
     try:
         updater.start_polling()
         logger.info("✅ Bot ishga tushdi!")
