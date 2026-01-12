@@ -13,7 +13,7 @@ python-dotenv==1.0.0
 
 # Bot sozlamalari
 
-SUPER_ADMIN_ID=7740552653
+
 
 # Userbot sozlamalari
 PHONE=+998931317231
