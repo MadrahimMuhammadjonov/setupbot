@@ -11,15 +11,6 @@ python-dotenv==1.0.0
 # .env (Muhit o'zgaruvchilari)
 # ============================================
 
-# Bot sozlamalari
-
-
-
-# Userbot sozlamalari
-PHONE=+998931317231
-API_ID=36799342
-API_HASH=fcdf748b56fb519c6900d02e25ae2d62
-SESSION_STRING=1ApWapzMBu7tofZMURMSzo89mVMr9xLotyNvtPCmERdQUHiz6JYT-4lRg2Q9BIXhZ4vQKg91VtU5AuCcz6mA7Okorwah803VPKW9G_uJ2T6wbhW3_UARwiT0xQO-NmNzhYV3Y65AeH4qAhYPEZ8ytw7FbrEO0r9h4cVB7z2gfUsS6bd7a8xuwNpt5Glwb3VOB-RXFMd1Mhv5EF3pV-rnejmRPGr27VhZml9ATMiCwUJwd4OqAA5ygn-fs8C6HH_UriS6K2T5ASR6ACLXSU8WeGCjBloyJM632L0coc1ik4ZduUxmnX3tQGRo8MCu26-QfwKG6Uqi2_lI6rHcTQYjE-G-DDC3qHcs=
 
 # Database
 DATABASE_PATH=bot_data.db
