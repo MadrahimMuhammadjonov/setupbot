@@ -5,7 +5,7 @@
 import logging
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, CallbackContext, filters
 import database as db
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -132,10 +132,12 @@ def button_callback(update: Update, context: CallbackContext):
         
         status = "✅ Yoqilgan" if schedule_enabled == 'true' else "❌ O'chirilgan"
         
-        text = f"⚙️ Userbot sozlamalari:\n\n⏰ Kundalik to'xtatish: {status}\n"
+        text = "⚙️ Userbot sozlamalari:\n\n"
+        text += f"⏰ Kundalik to'xtatish: {status}\n"
         
         if schedule_enabled == 'true':
-            text += f"🌙 To'xtatish vaqti: {stop_time}\n🌅 Ishga tushirish vaqti: {start_time}\n\n"
+            text += f"🌙 To'xtatish vaqti: {stop_time}\n"
+            text += f"🌅 Ishga tushirish vaqti: {start_time}\n\n"
         else:
             text += "\n"
         
@@ -182,16 +184,17 @@ def button_callback(update: Update, context: CallbackContext):
             
             status = "✅ Yoqilgan" if schedule_enabled == 'true' else "❌ O'chirilgan"
             
-            text = f"🤖 Userbot holati:\n\n📊 Statistika:\n"
+            text = "🤖 Userbot holati:\n\n📊 Statistika:\n"
             text += f"👥 Adminlar: {admin_count} ta\n"
             text += f"🔑 Kalit so'zlar: {keyword_count} ta\n"
             text += f"🔍 Izlovchi guruhlar: {search_group_count} ta\n"
             text += f"📢 Shaxsiy guruhlar: {private_group_count} ta\n\n"
-            text += f"⚙️ Sozlamalar:\n"
+            text += "⚙️ Sozlamalar:\n"
             text += f"⏰ Kundalik to'xtatish: {status}\n"
             
             if schedule_enabled == 'true':
-                text += f"🌙 To'xtatish: {stop_time}\n🌅 Ishga tushirish: {start_time}\n\n"
+                text += f"🌙 To'xtatish: {stop_time}\n"
+                text += f"🌅 Ishga tushirish: {start_time}\n\n"
             else:
                 text += "\n"
             
@@ -273,11 +276,35 @@ def button_callback(update: Update, context: CallbackContext):
     elif data == 'add_search_group':
         admin_id = context.user_data.get('viewing_admin', user_id)
         grps = db.get_search_groups(admin_id)
-        context.user_data['waiting'] = 'search_group'
-        query.edit_message_text(
-            f"📝 Izlovchi guruh ID yoki link yuboring:\n\n📊 Hozirda: {len(grps)}/100 ta\n\n💡 ID olish:\n1. Botni guruhga admin qiling\n2. Guruhda /id yuboring\n3. ID yoki linkni bu yerga yuboring",
-            reply_markup=back_button()
-        )
+
+        # Super admin uchun cheklov yo'q
+        if user_id == SUPER_ADMIN_ID:
+            context.user_data['waiting'] = 'search_group'
+            query.edit_message_text(
+                f"📝 Izlovchi guruh ID yoki link yuboring:\n\n📊 Hozirda: {len(grps)} ta\n\n💡 ID olish:\n1. Botni guruhga admin qiling\n2. Guruhda /id yuboring\n3. ID yoki linkni bu yerga yuboring",
+                reply_markup=back_button()
+            )
+        else:
+            # Oddiy adminlar uchun 1 soat cheklov
+            last_added = db.get_setting(f"last_search_group_add_{admin_id}", "1970-01-01 00:00:00")
+            try:
+                last_dt = datetime.strptime(last_added, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                last_dt = datetime.strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")
+            now_dt = datetime.now()
+
+            if (now_dt - last_dt).total_seconds() < 3600:
+                minutes_left = int((3600 - (now_dt - last_dt).total_seconds()) // 60)
+                query.edit_message_text(
+                    f"⏳ Siz oxirgi guruhni {last_added} da qo‘shgansiz.\nYangi guruh qo‘shish uchun {minutes_left} daqiqa kuting.",
+                    reply_markup=back_button()
+                )
+            else:
+                context.user_data['waiting'] = 'search_group'
+                query.edit_message_text(
+                    f"📝 Izlovchi guruh ID yoki link yuboring:\n\n📊 Hozirda: {len(grps)}/100 ta\n\n💡 ID olish:\n1. Botni guruhga admin qiling\n2. Guruhda /id yuboring\n3. ID yoki linkni bu yerga yuboring",
+                    reply_markup=back_button()
+                )
 
     elif data == 'view_search_groups':
         admin_id = context.user_data.get('viewing_admin', user_id)
@@ -333,14 +360,14 @@ def handle_text(update: Update, context: CallbackContext):
             try:
                 chat = context.bot.get_chat(new_id)
                 uname = chat.username or chat.first_name or f"User_{new_id}"
-            except:
+            except Exception:
                 uname = f"User_{new_id}"
             
             if db.add_admin(new_id, uname):
                 update.message.reply_text(f"✅ Admin qo'shildi!\n\n👤 {uname}\n🆔 {new_id}", reply_markup=back_button())
             else:
                 update.message.reply_text("ℹ️ Bu admin mavjud!", reply_markup=back_button())
-        except:
+        except Exception:
             update.message.reply_text("❌ Noto'g'ri ID!", reply_markup=back_button())
         context.user_data.pop('waiting', None)
 
@@ -366,7 +393,7 @@ def handle_text(update: Update, context: CallbackContext):
                     )
                 else:
                     update.message.reply_text("❌ Noto'g'ri format! Misol: 00:00:02:00", reply_markup=back_button())
-            except:
+            except Exception:
                 update.message.reply_text("❌ Noto'g'ri format! Misol: 00:00:02:00", reply_markup=back_button())
         context.user_data.pop('waiting', None)
 
@@ -387,11 +414,11 @@ def handle_text(update: Update, context: CallbackContext):
                 try:
                     chat = context.bot.get_chat(gid)
                     gname = chat.title or f"Guruh {gid}"
-                except:
+                except Exception:
                     gname = f"Guruh {gid}"
                 db.add_private_group(admin_id, group_id=gid, group_name=gname)
                 update.message.reply_text(f"✅ Shaxsiy guruh qo'shildi: {gname}", reply_markup=back_button())
-            except:
+            except Exception:
                 update.message.reply_text("❌ Noto'g'ri ID yoki link!", reply_markup=back_button())
         context.user_data.pop('waiting', None)
 
@@ -401,6 +428,8 @@ def handle_text(update: Update, context: CallbackContext):
             success, message = db.add_search_group(admin_id, SUPER_ADMIN_ID, group_link=text, group_name="Link orqali guruh")
             if success:
                 update.message.reply_text(f"✅ {message}: Link orqali guruh", reply_markup=back_button())
+                if user_id != SUPER_ADMIN_ID:
+                    db.set_setting(f"last_search_group_add_{admin_id}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             else:
                 update.message.reply_text(f"❌ {message}", reply_markup=back_button())
         else:
@@ -409,15 +438,17 @@ def handle_text(update: Update, context: CallbackContext):
                 try:
                     chat = context.bot.get_chat(gid)
                     gname = chat.title or f"Guruh {gid}"
-                except:
+                except Exception:
                     gname = f"Guruh {gid}"
                 
                 success, message = db.add_search_group(admin_id, SUPER_ADMIN_ID, group_id=gid, group_name=gname)
                 if success:
                     update.message.reply_text(f"✅ {message}: {gname}", reply_markup=back_button())
+                    if user_id != SUPER_ADMIN_ID:
+                        db.set_setting(f"last_search_group_add_{admin_id}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 else:
                     update.message.reply_text(f"❌ {message}", reply_markup=back_button())
-            except:
+            except Exception:
                 update.message.reply_text("❌ Noto'g'ri ID yoki link!", reply_markup=back_button())
         context.user_data.pop('waiting', None)
 
@@ -441,24 +472,31 @@ def check_group_message(update: Update, context: CallbackContext):
     for match in matches:
         try:
             keyboard = [[InlineKeyboardButton("👤 Profil", url=f"tg://user?id={user_id}")]]
-            if match['private_group_id']:
+            private_group_id = match.get('private_group_id')
+            
+            if private_group_id and str(private_group_id).lstrip('-').isdigit():
                 context.bot.send_message(
-                    chat_id=match['private_group_id'],
+                    chat_id=int(private_group_id),
                     text=(f"🔍 Kalit so'z topildi! (Bot)\n\n"
                           f"📢 Guruh: {group_name}\n"
                           f"👤 Foydalanuvchi: {username}\n"
                           f"🆔 User ID: {user_id}\n"
-                          f"🔑 Kalit so'z: {match['keyword']}\n\n"
+                          f"🔑 Kalit so'z: {match.get('keyword')}\n\n"
                           f"💬 Xabar:\n{msg_text}"),
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
+            else:
+                logger.warning("❌ private_group_id topilmadi yoki noto'g'ri formatda")
         except Exception as e:
             logger.error(f"Bot xabar yuborishda xato: {e}")
+
+# ==================== MAIN ====================
 
 def main():
     """Bot ishga tushirish"""
     db.init_db()
     
+    # Default sozlamalar
     if not db.get_setting('userbot_stop_time'):
         db.set_setting('userbot_stop_time', '00:00')
     if not db.get_setting('userbot_start_time'):
@@ -472,8 +510,8 @@ def main():
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("id", get_chat_id))
     dp.add_handler(CallbackQueryHandler(button_callback))
-    dp.add_handler(MessageHandler(Filters.text & Filters.private, handle_text))
-    dp.add_handler(MessageHandler(Filters.text & Filters.group, check_group_message))
+    dp.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_text))
+    dp.add_handler(MessageHandler(filters.TEXT & filters.ChatType.GROUPS, check_group_message))
 
     logger.info("🚀 Bot ishga tushmoqda...")
     
