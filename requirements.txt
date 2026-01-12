@@ -5,13 +5,14 @@
 python-telegram-bot==13.15
 telethon==1.35.0
 cryptg
-
+aiogram==3.4.1
+python-dotenv==1.0.0
 # ============================================
 # .env (Muhit o'zgaruvchilari)
 # ============================================
 
 # Bot sozlamalari
-BOT_TOKEN=8332172370:AAHpj0H_6sss-bMoGizp1ulUFQkmkEdC_PA
+
 SUPER_ADMIN_ID=7740552653
 
 # Userbot sozlamalari
