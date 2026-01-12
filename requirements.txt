@@ -1,2 +1,178 @@
+# ============================================
+# requirements.txt
+# ============================================
+
 python-telegram-bot==13.15
-telethon==1.34.0
+telethon==1.35.0
+cryptg
+
+# ============================================
+# .env (Muhit o'zgaruvchilari)
+# ============================================
+
+# Bot sozlamalari
+BOT_TOKEN=8332172370:AAHpj0H_6sss-bMoGizp1ulUFQkmkEdC_PA
+SUPER_ADMIN_ID=7740552653
+
+# Userbot sozlamalari
+PHONE=+998931317231
+API_ID=36799342
+API_HASH=fcdf748b56fb519c6900d02e25ae2d62
+SESSION_STRING=1ApWapzMBu7tofZMURMSzo89mVMr9xLotyNvtPCmERdQUHiz6JYT-4lRg2Q9BIXhZ4vQKg91VtU5AuCcz6mA7Okorwah803VPKW9G_uJ2T6wbhW3_UARwiT0xQO-NmNzhYV3Y65AeH4qAhYPEZ8ytw7FbrEO0r9h4cVB7z2gfUsS6bd7a8xuwNpt5Glwb3VOB-RXFMd1Mhv5EF3pV-rnejmRPGr27VhZml9ATMiCwUJwd4OqAA5ygn-fs8C6HH_UriS6K2T5ASR6ACLXSU8WeGCjBloyJM632L0coc1ik4ZduUxmnX3tQGRo8MCu26-QfwKG6Uqi2_lI6rHcTQYjE-G-DDC3qHcs=
+
+# Database
+DATABASE_PATH=bot_data.db
+
+# ============================================
+# README.md
+# ============================================
+
+# Bot va Userbot Tizimi
+
+Telegram bot va userbot ikki alohida jarayon sifatida ishlaydigan, bitta shared database bilan bog'langan tizim.
+
+## 📁 Fayl Tuzilishi
+
+```
+project/
+├── database.py          # Shared database moduli
+├── bot.py              # Telegram bot
+├── userbot.py          # Telegram userbot
+├── requirements.txt    # Python kutubxonalari
+├── .env               # Muhit o'zgaruvchilari
+└── README.md          # Dokumentatsiya
+```
+
+## 🚀 O'rnatish
+
+### 1. Kutubxonalarni o'rnatish
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. .env faylini sozlash
+
+`.env` faylida quyidagi o'zgaruvchilarni to'ldiring:
+
+- `BOT_TOKEN` - Telegram bot token
+- `SUPER_ADMIN_ID` - Super admin ID
+- `PHONE` - Userbot telefon raqami
+- `API_ID` - Telegram API ID
+- `API_HASH` - Telegram API Hash
+- `SESSION_STRING` - Userbot session string
+
+## ▶️ Ishga Tushirish
+
+### Bot ishga tushirish:
+```bash
+python bot.py
+```
+
+### Userbot ishga tushirish (alohida terminal):
+```bash
+python userbot.py
+```
+
+### Ikkalasini birga ishga tushirish (Linux/Mac):
+```bash
+python bot.py & python userbot.py &
+```
+
+### Ikkalasini birga ishga tushirish (Windows):
+Ikkita alohida terminal oching va har birida ishga tushiring.
+
+## 📊 Database Tuzilishi
+
+Database `bot_data.db` faylida SQLite formatida saqlanadi.
+
+### Jadvallar:
+
+1. **admins** - Adminlar ro'yxati
+2. **keywords** - Kalit so'zlar
+3. **private_groups** - Shaxsiy guruhlar (har bir admin uchun bitta)
+4. **search_groups** - Izlovchi guruhlar (har bir admin uchun 100 tagacha)
+5. **bot_settings** - Bot sozlamalari
+
+## 🔧 Xususiyatlar
+
+### Bot (bot.py):
+- ✅ Admin boshqaruvi (faqat super admin uchun)
+- ✅ Kalit so'zlarni boshqarish
+- ✅ Shaxsiy guruh qo'shish/o'chirish
+- ✅ Izlovchi guruhlarni boshqarish
+- ✅ Guruh xabarlarini tekshirish
+- ✅ Kalit so'z topilganda xabar yuborish
+
+### Userbot (userbot.py):
+- ✅ Barcha guruhlardagi xabarlarni kuzatish
+- ✅ Kalit so'z topilganda xabar yuborish
+- ✅ 24/7 ishlash
+- ✅ Kundalik restart (00:00 to'xtatish, 02:00 qayta ishga tushirish)
+
+### Database (database.py):
+- ✅ Shared database - Bot va Userbot bir xil databasedan foydalanadi
+- ✅ Ma'lumotlar saqlanadi (bot restart qilinsa ham)
+- ✅ Faqat adminlar ma'lumotlarni o'chirishi mumkin
+- ✅ 1 soatlik limit izlovchi guruh qo'shishda (super admin bundan mustasno)
+
+## 🔐 Xavfsizlik
+
+- Token va API kalitlarni `.env` faylida saqlang
+- `.env` faylini GitHub ga yuklamang
+- Super admin ID ni maxfiy saqlang
+- Session string ni hech kimga bermang
+
+## 📋 Buyruqlar
+
+### Bot buyruqlari:
+- `/start` - Botni ishga tushirish
+- `/id` - Guruh ID olish (guruhlarda)
+
+### Admin imkoniyatlari:
+- Kalit so'z qo'shish/o'chirish
+- Shaxsiy guruh qo'shish/o'chirish
+- Izlovchi guruh qo'shish/o'chirish (1 soatda 1 ta)
+- Barcha ma'lumotlarni ko'rish
+
+### Super Admin imkoniyatlari:
+- Yangi admin qo'shish
+- Adminni o'chirish
+- Adminlar ro'yxatini ko'rish
+- Har qanday admin xonasiga kirish
+- Cheksiz izlovchi guruh qo'shish
+
+## 🕐 Userbot Ish Jadvali
+
+- **00:00** - Userbot to'xtatiladi
+- **02:00** - Userbot qayta ishga tushadi
+
+Agar kundalik restart kerak bo'lmasa, `userbot.py` faylida quyidagi qatorni comment qiling:
+
+```python
+# asyncio.create_task(schedule_userbot_restart(client))
+```
+
+## ⚠️ Muammolarni Hal Qilish
+
+### Bot ishlamayapti:
+1. Token to'g'ri ekanligini tekshiring
+2. Internet aloqasini tekshiring
+3. `python bot.py` buyrug'ini qayta ishga tushiring
+
+### Userbot ishlamayapti:
+1. Session string to'g'ri ekanligini tekshiring
+2. API_ID va API_HASH to'g'ri ekanligini tekshiring
+3. `python userbot.py` buyrug'ini qayta ishga tushiring
+
+### Database xatolari:
+1. `bot_data.db` faylini o'chiring
+2. Bot va Userbotni qayta ishga tushiring (database avtomatik yaratiladi)
+
+## 📞 Yordam
+
+Muammo yuzaga kelsa, super adminga murojaat qiling.
+
+## 📄 Litsenziya
+
+MIT License
