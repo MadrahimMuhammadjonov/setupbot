@@ -28,7 +28,12 @@ async def send_notification(private_group_id, group_name, username, user_id, key
         logger.error(f"Notification error: {e}")
 
 async def start_userbot(api_data):
-    client = TelegramClient(StringSession(api_data['session_string']), api_data['api_id'], api_data['api_hash'])
+    # Each client uses its own api_id and api_hash from the database
+    client = TelegramClient(
+        StringSession(api_data['session_string']), 
+        api_data['api_id'], 
+        api_data['api_hash']
+    )
     
     @client.on(events.NewMessage)
     async def handler(event):
@@ -40,15 +45,18 @@ async def start_userbot(api_data):
         
         matches = db.check_keywords_in_message(group_id, msg_text)
         if matches:
-            chat = await event.get_chat()
-            group_name = getattr(chat, 'title', 'Unknown')
-            sender = await event.get_sender()
-            user_id = sender.id if sender else 0
-            username = getattr(sender, 'username', 'Unknown') or getattr(sender, 'first_name', 'Unknown')
-            
-            for m in matches:
-                if m['private_group_id']:
-                    await send_notification(m['private_group_id'], group_name, username, user_id, m['keyword'], msg_text)
+            try:
+                chat = await event.get_chat()
+                group_name = getattr(chat, 'title', 'Unknown')
+                sender = await event.get_sender()
+                user_id = sender.id if sender else 0
+                username = getattr(sender, 'username', 'Unknown') or getattr(sender, 'first_name', 'Unknown')
+                
+                for m in matches:
+                    if m['private_group_id']:
+                        await send_notification(m['private_group_id'], group_name, username, user_id, m['keyword'], msg_text)
+            except Exception as e:
+                logger.error(f"Handler error: {e}")
 
     try:
         await client.start()
@@ -62,15 +70,21 @@ async def main():
     db.init_db()
     while True:
         active_apis = db.get_active_apis()
+        if not active_apis:
+            logger.info("No active userbots. Checking again in 60s...")
+            await asyncio.sleep(60)
+            continue
+
         tasks = []
         for api in active_apis:
             tasks.append(start_userbot(api))
         
-        if tasks:
-            await asyncio.gather(*tasks)
-        else:
-            logger.info("No active userbots. Checking again in 60s...")
-            await asyncio.sleep(60)
+        # Run all active userbots concurrently
+        await asyncio.gather(*tasks)
+        await asyncio.sleep(10)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Userbot process stopped.")
