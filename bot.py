@@ -11,6 +11,7 @@ import threading
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# DIQQAT: Token va ID laringizni xavfsiz saqlang
 TOKEN = "8332172370:AAHpj0H_6sss-bMoGizp1ulUFQkmkEdC_PA"
 SUPER_ADMIN_ID = 7740552653
 
@@ -289,7 +290,8 @@ def button_callback(update: Update, context: CallbackContext):
             query.edit_message_text("ℹ️ Kalit so'zlar yo'q", reply_markup=back_button())
             
     elif data.startswith('delkw_'):
-    db.remove_keyword(int(data.split('_')[1]))
+        # TUZATILGAN QATOR (Indentation fixed)
+        db.remove_keyword(int(data.split('_')[1]))
         query.edit_message_text("✅ Kalit so'z o'chirildi!", reply_markup=back_button())
         
     elif data == 'add_private_group':
