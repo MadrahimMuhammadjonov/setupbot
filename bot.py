@@ -128,7 +128,7 @@ def button_callback(update: Update, context: CallbackContext):
                     f"🌅 Ishga tushish vaqti: {start_t}")
             
             keyboard = [
-                [InlineKeyboardButton(f"{'🔴 O'chirish' if status == 'true' else '🟢 Yoqish'}", callback_data='toggle_schedule')],
+                [InlineKeyboardButton("🔴 O'chirish" if status == 'true' else "🟢 Yoqish", callback_data='toggle_schedule')],
                 [InlineKeyboardButton("⏰ To'xtash vaqtini o'zgartirish", callback_data='set_stop_time')],
                 [InlineKeyboardButton("🌅 Boshlash vaqtini o'zgartirish", callback_data='set_start_time')],
                 [InlineKeyboardButton("⬅️ Ortga", callback_data='back_to_main')]
