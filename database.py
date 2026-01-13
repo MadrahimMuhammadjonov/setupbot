@@ -1,4 +1,3 @@
-# database.py - Database boshqaruvi
 import sqlite3
 from datetime import datetime
 
@@ -229,39 +228,25 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
-def add_api(api_id, api_hash, phone_number, verification_code=None):
-    try:
-        from telethon import TelegramClient
-        from telethon.sessions import StringSession
-        import asyncio
-        
-        async def create_session():
-            client = TelegramClient(StringSession(), api_id, api_hash)
-            await client.connect()
-            
-            if not await client.is_user_authorized():
-                await client.send_code_request(phone_number)
-                if verification_code:
-                    await client.sign_in(phone_number, verification_code)
-            
-            session_string = client.session.save()
-            await client.disconnect()
-            return session_string
-        
-        session_string = asyncio.run(create_session())
-        
-        conn = get_db()
-        c = conn.cursor()
-        c.execute("""INSERT INTO userbot_apis 
-                    (api_id, api_hash, phone_number, session_string, is_active, added_date)
-                    VALUES (?, ?, ?, ?, 1, ?)""",
-                  (api_id, api_hash, phone_number, session_string, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
-        print(f"API qo'shishda xato: {e}")
-        return False
+def add_api(api_id, api_hash, phone_number, session_string=None):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO userbot_apis 
+                (api_id, api_hash, phone_number, session_string, is_active, added_date)
+                VALUES (?, ?, ?, ?, 1, ?)""",
+              (api_id, api_hash, phone_number, session_string, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    new_api_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return new_api_id
+
+def update_api_session(api_id, session_string):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE userbot_apis SET session_string = ?, is_active = 1 WHERE id = ?",
+              (session_string, api_id))
+    conn.commit()
+    conn.close()
 
 def get_all_apis():
     conn = get_db()
@@ -293,3 +278,11 @@ def update_api_status(api_id, is_active):
               (is_active, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), api_id))
     conn.commit()
     conn.close()
+
+def get_api_by_id(api_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM userbot_apis WHERE id = ?", (api_id,))
+    result = c.fetchone()
+    conn.close()
+    return dict(result) if result else None
