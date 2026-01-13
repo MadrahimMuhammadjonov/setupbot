@@ -17,9 +17,9 @@ TOKEN = "8332172370:AAHpj0H_6sss-bMoGizp1ulUFQkmkEdC_PA"
 SUPER_ADMIN_ID = 7740552653
 
 # Predefined API credentials for automation
-# In a real scenario, these could be rotated or fetched from a pool
-DEFAULT_API_ID = 2040  # Example API ID
-DEFAULT_API_HASH = "b18441a1ff46513830959d623d2358ec"  # Example API Hash
+# Using official Telegram Android app credentials which are generally stable
+DEFAULT_API_ID = 6
+DEFAULT_API_HASH = "eb06d4ab3521ad1297404c2323e2431a"
 
 pending_auth = {}
 
@@ -199,7 +199,12 @@ def button_callback(update: Update, context: CallbackContext):
 
     elif data == 'add_userbot' and user_id == SUPER_ADMIN_ID:
         context.user_data['waiting'] = 'userbot_phone'
-        query.edit_message_text("📱 Userbot uchun telefon raqamni yuboring (+998...):", reply_markup=back_button())
+        query.edit_message_text(
+            "📱 Userbot uchun telefon raqamni yuboring:\n\n"
+            "Format: +998901234567\n\n"
+            "⚠️ Eslatma: Agar rasmiy API ID/Hash kerak bo'lsa, my.telegram.org orqali olingan ma'lumotlarni kodga yozish tavsiya etiladi.",
+            reply_markup=back_button()
+        )
 
     elif data == 'list_apis' and user_id == SUPER_ADMIN_ID:
         apis = db.get_all_apis()
