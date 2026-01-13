@@ -24,7 +24,6 @@ def super_admin_keyboard():
         [InlineKeyboardButton("📋 Adminlar", callback_data='list_admins')],
         [InlineKeyboardButton("🗑 Admin o'chirish", callback_data='remove_admin')],
         [InlineKeyboardButton("🚪 Admin xonasi", callback_data='enter_admin_room')],
-        [InlineKeyboardButton("⚙️ API Sozlamalari", callback_data='setup_global_api')],
         [InlineKeyboardButton("🤖 Userbot qo'shish", callback_data='add_userbot')],
         [InlineKeyboardButton("📋 Userbotlar", callback_data='list_apis')],
         [InlineKeyboardButton("📊 Status", callback_data='check_userbot')]
@@ -67,7 +66,7 @@ def start(update: Update, context: CallbackContext):
 
 def handle_text(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
-    text = update.message.text
+    text = update.message.text.strip()
     waiting = context.user_data.get('waiting')
 
     if not waiting:
@@ -82,32 +81,33 @@ def handle_text(update: Update, context: CallbackContext):
         except ValueError:
             update.message.reply_text("❌ Noto'g'ri ID! Faqat raqam kiriting.")
 
-    elif waiting == 'global_api_input' and user_id == SUPER_ADMIN_ID:
-        try:
-            # Expected format: api_id:api_hash
-            if ':' not in text:
-                update.message.reply_text("❌ Noto'g'ri format! api_id:api_hash ko'rinishida yuboring.\nMasalan: 1234567:abcd1234efgh5678")
-                return
-            
-            api_id, api_hash = text.split(':', 1)
-            db.set_global_api(int(api_id.strip()), api_hash.strip())
-            update.message.reply_text("✅ Global API ma'lumotlari saqlandi!", reply_markup=back_button())
-            context.user_data.pop('waiting')
-        except Exception as e:
-            update.message.reply_text(f"❌ Xatolik: {str(e)}")
-
+    # Step 1: Phone Number
     elif waiting == 'userbot_phone' and user_id == SUPER_ADMIN_ID:
-        api_id, api_hash = db.get_global_api()
-        if not api_id or not api_hash:
-            update.message.reply_text("❌ Avval API Sozlamalaridan api_id va api_hash ni o'rnating!", reply_markup=back_button())
-            return
-
-        phone = text.strip()
-        if not phone.startswith('+'):
+        if not text.startswith('+'):
             update.message.reply_text("❌ Telefon raqam + bilan boshlanishi kerak (masalan: +998901234567)")
             return
+        context.user_data['temp_phone'] = text
+        context.user_data['waiting'] = 'userbot_api_id'
+        update.message.reply_text(f"📱 Raqam: `{text}`\n\nEndi ushbu raqam uchun **API ID** ni yuboring:", reply_markup=back_button(), parse_mode='Markdown')
 
-        update.message.reply_text("⏳ Kod so'ralmoqda...")
+    # Step 2: API ID
+    elif waiting == 'userbot_api_id' and user_id == SUPER_ADMIN_ID:
+        try:
+            api_id = int(text)
+            context.user_data['temp_api_id'] = api_id
+            context.user_data['waiting'] = 'userbot_api_hash'
+            update.message.reply_text(f"🆔 API ID: `{api_id}`\n\nEndi ushbu raqam uchun **API Hash** ni yuboring:", reply_markup=back_button(), parse_mode='Markdown')
+        except ValueError:
+            update.message.reply_text("❌ API ID faqat raqamlardan iborat bo'lishi kerak!")
+
+    # Step 3: API Hash
+    elif waiting == 'userbot_api_hash' and user_id == SUPER_ADMIN_ID:
+        api_hash = text
+        phone = context.user_data.get('temp_phone')
+        api_id = context.user_data.get('temp_api_id')
+        
+        context.user_data['temp_api_hash'] = api_hash
+        update.message.reply_text(f"🔑 API Hash: `{api_hash}`\n\n⏳ Telegram'dan kod so'ralmoqda...", parse_mode='Markdown')
         
         def start_client_thread():
             loop = asyncio.new_event_loop()
@@ -127,21 +127,23 @@ def handle_text(update: Update, context: CallbackContext):
                 }
                 
                 context.user_data['waiting'] = 'userbot_code'
-                update.message.reply_text("📩 Telegram'dan kelgan kodni kiriting:", reply_markup=back_button())
+                update.message.reply_text(f"📩 `{phone}` raqamiga yuborilgan kodni kiriting:", reply_markup=back_button(), parse_mode='Markdown')
             except Exception as e:
-                update.message.reply_text(f"❌ Xatolik: {str(e)}\n\nEhtimol api_id yoki api_hash noto'g'ri.")
+                update.message.reply_text(f"❌ Xatolik: {str(e)}\n\nKiritilgan API ID yoki API Hash noto'g'ri bo'lishi mumkin. Qaytadan boshlang.")
+                context.user_data.pop('waiting', None)
                 loop.run_until_complete(client.disconnect())
                 loop.close()
 
         threading.Thread(target=start_client_thread).start()
 
+    # Step 4: Verification Code
     elif waiting == 'userbot_code' and user_id == SUPER_ADMIN_ID:
         auth_data = pending_auth.get(user_id)
         if not auth_data:
             update.message.reply_text("❌ Sessiya topilmadi. Qaytadan boshlang.")
             return
 
-        code = text.strip()
+        code = text
         update.message.reply_text("⏳ Tasdiqlanmoqda...")
 
         def verify_code_thread():
@@ -153,9 +155,12 @@ def handle_text(update: Update, context: CallbackContext):
                 
                 db.add_api(auth_data['api_id'], auth_data['api_hash'], auth_data['phone'], session_str)
                 
-                update.message.reply_text("✅ Userbot muvaffaqiyatli qo'shildi!", reply_markup=back_button())
+                update.message.reply_text(f"✅ Userbot muvaffaqiyatli qo'shildi!\n📱 Raqam: {auth_data['phone']}", reply_markup=back_button())
                 pending_auth.pop(user_id)
                 context.user_data.pop('waiting')
+                context.user_data.pop('temp_phone', None)
+                context.user_data.pop('temp_api_id', None)
+                context.user_data.pop('temp_api_hash', None)
             except Exception as e:
                 update.message.reply_text(f"❌ Xatolik: {str(e)}")
             finally:
@@ -208,26 +213,7 @@ def button_callback(update: Update, context: CallbackContext):
         context.user_data['waiting'] = 'admin_id'
         query.edit_message_text("📝 Yangi admin ID sini yuboring:", reply_markup=back_button())
 
-    elif data == 'setup_global_api' and user_id == SUPER_ADMIN_ID:
-        api_id, api_hash = db.get_global_api()
-        text = "⚙️ **API Sozlamalari**\n\n"
-        if api_id:
-            text += f"Hozirgi API ID: `{api_id}`\n"
-            text += f"Hozirgi API Hash: `{api_hash}`\n\n"
-        else:
-            text += "Hali API ma'lumotlari o'rnatilmagan.\n\n"
-        
-        text += "Yangi ma'lumotlarni o'rnatish uchun `api_id:api_hash` formatida yuboring.\n"
-        text += "Masalan: `1234567:abcd1234efgh5678`"
-        
-        context.user_data['waiting'] = 'global_api_input'
-        query.edit_message_text(text, reply_markup=back_button(), parse_mode='Markdown')
-
     elif data == 'add_userbot' and user_id == SUPER_ADMIN_ID:
-        api_id, api_hash = db.get_global_api()
-        if not api_id:
-            query.edit_message_text("❌ Avval API Sozlamalaridan api_id va api_hash ni o'rnating!", reply_markup=back_button())
-            return
         context.user_data['waiting'] = 'userbot_phone'
         query.edit_message_text("📱 Userbot uchun telefon raqamni yuboring (+998...):", reply_markup=back_button())
 
@@ -235,7 +221,7 @@ def button_callback(update: Update, context: CallbackContext):
         apis = db.get_all_apis()
         text = "📋 Userbotlar:\n"
         for a in apis:
-            text += f"• {a['phone_number']} ({'✅' if a['is_active'] else '❌'})\n"
+            text += f"• {a['phone_number']} (ID: {a['api_id']}) - {'✅' if a['is_active'] else '❌'}\n"
         query.edit_message_text(text or "ℹ️ Userbotlar yo'q", reply_markup=back_button())
 
     # Admin actions
