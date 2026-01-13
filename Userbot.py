@@ -1,4 +1,3 @@
-# userbot.py - Telegram Userbot
 import logging
 import asyncio
 from datetime import datetime, time, timedelta
@@ -40,7 +39,7 @@ async def send_notification(private_group_id, group_name, username, user_id, key
             f"📢 Guruh: {group_name}\n"
             f"👤 User: {username}\n"
             f"🆔 ID: {user_id}\n"
-            f"🔑 Kalit: {keyword}\n\n"
+            f"🔑 Kalit so'z: {keyword}\n\n"
             f"💬 Xabar:\n{msg_text}"
         )
         
@@ -50,7 +49,7 @@ async def send_notification(private_group_id, group_name, username, user_id, key
             reply_markup=keyboard
         )
         
-        logger.info(f"✅ Xabar yuborildi: {group_name}, {keyword}")
+        logger.info(f"✅ Xabar yuborildi: {group_name}, kalit: {keyword}")
         
     except TelegramError as e:
         logger.error(f"❌ Telegram xato: {e}")
@@ -78,12 +77,12 @@ async def message_handler(event):
         user_id = sender.id
         username = sender.username if sender.username else (sender.first_name if sender.first_name else "Unknown")
         
-        logger.info(f"📨 Xabar: {group_name} ({group_id}), {username}")
+        logger.info(f"📨 Xabar qabul qilindi: {group_name} ({group_id}), user: {username}")
         
         matches = db.check_keywords_in_message(group_id, msg_text)
         
         if matches:
-            logger.info(f"🔍 {len(matches)} ta topildi!")
+            logger.info(f"🔍 {len(matches)} ta kalit so'z topildi!")
             
             for match in matches:
                 try:
@@ -97,7 +96,7 @@ async def message_handler(event):
                             msg_text
                         )
                 except Exception as e:
-                    logger.error(f"❌ Xato: {e}")
+                    logger.error(f"❌ Xabar yuborishda xato: {e}")
         
     except Exception as e:
         logger.error(f"❌ Handler xato: {e}")
@@ -111,14 +110,19 @@ async def start_userbot_with_apis():
         apis = db.get_active_apis()
         
         if not apis:
-            logger.warning("⚠️ Aktiv API yo'q!")
+            logger.warning("⚠️ Aktiv API topilmadi!")
             await asyncio.sleep(60)
             return
         
-        logger.info(f"🤖 {len(apis)} ta API topildi")
+        logger.info(f"🤖 {len(apis)} ta aktiv API topildi")
         
         for api in apis:
             try:
+                if not api['session_string']:
+                    logger.warning(f"⚠️ Session yo'q: {api['phone_number']}")
+                    db.update_api_status(api['id'], 0)
+                    continue
+                
                 client = TelegramClient(
                     StringSession(api['session_string']),
                     api['api_id'],
@@ -129,16 +133,17 @@ async def start_userbot_with_apis():
                 logger.info(f"✅ Ulanildi: {api['phone_number']}")
                 
                 me = await client.get_me()
-                logger.info(f"✅ {me.first_name} (@{me.username})")
+                logger.info(f"✅ Tizimga kirdi: {me.first_name} (@{me.username})")
                 
                 @client.on(events.NewMessage())
                 async def handler(event):
                     await message_handler(event)
                 
                 active_clients.append(client)
+                db.update_api_status(api['id'], 1)
                 
             except Exception as e:
-                logger.error(f"❌ API xato ({api['phone_number']}): {e}")
+                logger.error(f"❌ API ulanishda xato ({api['phone_number']}): {e}")
                 db.update_api_status(api['id'], 0)
         
         if not active_clients:
@@ -146,6 +151,7 @@ async def start_userbot_with_apis():
             return
         
         logger.info(f"🎯 {len(active_clients)} ta userbot ishlayapti...")
+        logger.info("🔄 Xabarlarni kutmoqda...")
         
         await asyncio.gather(*[client.run_until_disconnected() for client in active_clients])
         
@@ -168,7 +174,7 @@ async def start_with_schedule():
             schedule_enabled = db.get_setting('userbot_schedule_enabled', 'true')
             
             if schedule_enabled != 'true':
-                logger.info("⏰ 24/7 rejim")
+                logger.info("⏰ 24/7 rejim yoqilgan")
                 await start_userbot_with_apis()
                 continue
             
@@ -186,24 +192,24 @@ async def start_with_schedule():
             
             seconds_until_stop = (stop_today - now).total_seconds()
             
-            logger.info(f"⏰ {stop_time_str} da to'xtatiladi ({int(seconds_until_stop/3600)}:{int((seconds_until_stop%3600)/60)})")
+            logger.info(f"⏰ {stop_time_str} da to'xtatiladi ({int(seconds_until_stop/3600)} soat {int((seconds_until_stop%3600)/60)} daqiqa)")
             
             try:
                 await asyncio.wait_for(start_userbot_with_apis(), timeout=seconds_until_stop)
             except asyncio.TimeoutError:
-                logger.info(f"🌙 {stop_time_str} - To'xtatilmoqda...")
+                logger.info(f"🌙 {stop_time_str} - Userbot to'xtatilmoqda...")
             
             start_tomorrow = datetime.combine(now.date() + timedelta(days=1), time(start_h, start_m))
             sleep_seconds = (start_tomorrow - datetime.now()).total_seconds()
             
-            logger.info(f"💤 {int(sleep_seconds/3600)}:{int((sleep_seconds%3600)/60)} kutish...")
+            logger.info(f"💤 {int(sleep_seconds/3600)} soat {int((sleep_seconds%3600)/60)} daqiqa kutish...")
             await asyncio.sleep(sleep_seconds)
             
-            logger.info(f"🌅 {start_time_str} - Qayta ishga tushirish...")
+            logger.info(f"🌅 {start_time_str} - Qayta ishga tushirilmoqda...")
             
         except Exception as e:
             logger.error(f"❌ Xato: {e}")
-            logger.info("⏳ 5 daqiqa kutish...")
+            logger.info("⏳ 5 daqiqa kutish va qayta urinish...")
             await asyncio.sleep(300)
 
 async def main():
@@ -216,17 +222,17 @@ async def main():
     schedule_enabled = db.get_setting('userbot_schedule_enabled', 'true')
     
     if schedule_enabled == 'true':
-        logger.info("⏰ Kundalik restart yoqilgan")
+        logger.info("⏰ Kundalik restart rejimi yoqilgan")
         await start_with_schedule()
     else:
-        logger.info("⏰ 24/7 rejim")
+        logger.info("⏰ 24/7 ish rejimi")
         await start_userbot_with_apis()
 
 if __name__ == '__main__':
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("\n⛔ To'xtatildi (Ctrl+C)")
+        logger.info("\n⛔ Userbot to'xtatildi (Ctrl+C)")
     except Exception as e:
         logger.error(f"❌ Fatal xato: {e}")
         import traceback
