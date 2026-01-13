@@ -16,11 +16,6 @@ logger = logging.getLogger(__name__)
 TOKEN = "8332172370:AAHpj0H_6sss-bMoGizp1ulUFQkmkEdC_PA"
 SUPER_ADMIN_ID = 7740552653
 
-# Predefined API credentials for automation
-# Using official Telegram Android app credentials which are generally stable
-DEFAULT_API_ID = 6
-DEFAULT_API_HASH = "eb06d4ab3521ad1297404c2323e2431a"
-
 pending_auth = {}
 
 def super_admin_keyboard():
@@ -29,6 +24,7 @@ def super_admin_keyboard():
         [InlineKeyboardButton("📋 Adminlar", callback_data='list_admins')],
         [InlineKeyboardButton("🗑 Admin o'chirish", callback_data='remove_admin')],
         [InlineKeyboardButton("🚪 Admin xonasi", callback_data='enter_admin_room')],
+        [InlineKeyboardButton("⚙️ API Sozlamalari", callback_data='setup_global_api')],
         [InlineKeyboardButton("🤖 Userbot qo'shish", callback_data='add_userbot')],
         [InlineKeyboardButton("📋 Userbotlar", callback_data='list_apis')],
         [InlineKeyboardButton("📊 Status", callback_data='check_userbot')]
@@ -86,8 +82,26 @@ def handle_text(update: Update, context: CallbackContext):
         except ValueError:
             update.message.reply_text("❌ Noto'g'ri ID! Faqat raqam kiriting.")
 
+    elif waiting == 'global_api_input' and user_id == SUPER_ADMIN_ID:
+        try:
+            # Expected format: api_id:api_hash
+            if ':' not in text:
+                update.message.reply_text("❌ Noto'g'ri format! api_id:api_hash ko'rinishida yuboring.\nMasalan: 1234567:abcd1234efgh5678")
+                return
+            
+            api_id, api_hash = text.split(':', 1)
+            db.set_global_api(int(api_id.strip()), api_hash.strip())
+            update.message.reply_text("✅ Global API ma'lumotlari saqlandi!", reply_markup=back_button())
+            context.user_data.pop('waiting')
+        except Exception as e:
+            update.message.reply_text(f"❌ Xatolik: {str(e)}")
+
     elif waiting == 'userbot_phone' and user_id == SUPER_ADMIN_ID:
-        # Automated API/Hash handling
+        api_id, api_hash = db.get_global_api()
+        if not api_id or not api_hash:
+            update.message.reply_text("❌ Avval API Sozlamalaridan api_id va api_hash ni o'rnating!", reply_markup=back_button())
+            return
+
         phone = text.strip()
         if not phone.startswith('+'):
             update.message.reply_text("❌ Telefon raqam + bilan boshlanishi kerak (masalan: +998901234567)")
@@ -98,7 +112,7 @@ def handle_text(update: Update, context: CallbackContext):
         def start_client_thread():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            client = TelegramClient(StringSession(), DEFAULT_API_ID, DEFAULT_API_HASH)
+            client = TelegramClient(StringSession(), api_id, api_hash)
             try:
                 loop.run_until_complete(client.connect())
                 send_code = loop.run_until_complete(client.send_code_request(phone))
@@ -107,13 +121,15 @@ def handle_text(update: Update, context: CallbackContext):
                     'client': client,
                     'phone': phone,
                     'phone_code_hash': send_code.phone_code_hash,
-                    'loop': loop
+                    'loop': loop,
+                    'api_id': api_id,
+                    'api_hash': api_hash
                 }
                 
                 context.user_data['waiting'] = 'userbot_code'
                 update.message.reply_text("📩 Telegram'dan kelgan kodni kiriting:", reply_markup=back_button())
             except Exception as e:
-                update.message.reply_text(f"❌ Xatolik: {str(e)}")
+                update.message.reply_text(f"❌ Xatolik: {str(e)}\n\nEhtimol api_id yoki api_hash noto'g'ri.")
                 loop.run_until_complete(client.disconnect())
                 loop.close()
 
@@ -135,7 +151,7 @@ def handle_text(update: Update, context: CallbackContext):
                 loop.run_until_complete(client.sign_in(auth_data['phone'], code, phone_code_hash=auth_data['phone_code_hash']))
                 session_str = client.session.save()
                 
-                db.add_api(DEFAULT_API_ID, DEFAULT_API_HASH, auth_data['phone'], session_str)
+                db.add_api(auth_data['api_id'], auth_data['api_hash'], auth_data['phone'], session_str)
                 
                 update.message.reply_text("✅ Userbot muvaffaqiyatli qo'shildi!", reply_markup=back_button())
                 pending_auth.pop(user_id)
@@ -192,19 +208,28 @@ def button_callback(update: Update, context: CallbackContext):
         context.user_data['waiting'] = 'admin_id'
         query.edit_message_text("📝 Yangi admin ID sini yuboring:", reply_markup=back_button())
 
-    elif data == 'list_admins' and user_id == SUPER_ADMIN_ID:
-        admins = db.get_all_admins()
-        text = "📋 Adminlar:\n" + "\n".join([f"• {u} ({i})" for i, u in admins]) if admins else "ℹ️ Adminlar yo'q"
-        query.edit_message_text(text, reply_markup=back_button())
+    elif data == 'setup_global_api' and user_id == SUPER_ADMIN_ID:
+        api_id, api_hash = db.get_global_api()
+        text = "⚙️ **API Sozlamalari**\n\n"
+        if api_id:
+            text += f"Hozirgi API ID: `{api_id}`\n"
+            text += f"Hozirgi API Hash: `{api_hash}`\n\n"
+        else:
+            text += "Hali API ma'lumotlari o'rnatilmagan.\n\n"
+        
+        text += "Yangi ma'lumotlarni o'rnatish uchun `api_id:api_hash` formatida yuboring.\n"
+        text += "Masalan: `1234567:abcd1234efgh5678`"
+        
+        context.user_data['waiting'] = 'global_api_input'
+        query.edit_message_text(text, reply_markup=back_button(), parse_mode='Markdown')
 
     elif data == 'add_userbot' and user_id == SUPER_ADMIN_ID:
+        api_id, api_hash = db.get_global_api()
+        if not api_id:
+            query.edit_message_text("❌ Avval API Sozlamalaridan api_id va api_hash ni o'rnating!", reply_markup=back_button())
+            return
         context.user_data['waiting'] = 'userbot_phone'
-        query.edit_message_text(
-            "📱 Userbot uchun telefon raqamni yuboring:\n\n"
-            "Format: +998901234567\n\n"
-            "⚠️ Eslatma: Agar rasmiy API ID/Hash kerak bo'lsa, my.telegram.org orqali olingan ma'lumotlarni kodga yozish tavsiya etiladi.",
-            reply_markup=back_button()
-        )
+        query.edit_message_text("📱 Userbot uchun telefon raqamni yuboring (+998...):", reply_markup=back_button())
 
     elif data == 'list_apis' and user_id == SUPER_ADMIN_ID:
         apis = db.get_all_apis()
