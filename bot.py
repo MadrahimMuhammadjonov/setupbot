@@ -5,6 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 import database as db
 
+# Logging sozlamalari
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -215,7 +216,9 @@ def button_callback(update: Update, context: CallbackContext):
     elif data == 'view_private_group':
         aid = context.user_data.get('viewing_admin', user_id)
         gn = db.get_private_group_name(aid)
-        query.edit_message_text(f"📢 {gn if gn else 'Yo\'q'}", reply_markup=back_button())
+        # XATOLIK SHU YERDA TUZATILDI:
+        msg_text = f"📢 {gn}" if gn else "📢 Yo'q"
+        query.edit_message_text(msg_text, reply_markup=back_button())
     elif data == 'delete_private_group':
         aid = context.user_data.get('viewing_admin', user_id)
         gn = db.get_private_group_name(aid)
